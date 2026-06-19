@@ -139,13 +139,15 @@ def process_silver():
     write_deltalake(
         f"s3://{SILVER_BUCKET}/unicorn_startups",
         df_kaggle,
-        storage_options=DELTA_STORAGE_OPTIONS
+        storage_options=DELTA_STORAGE_OPTIONS,
+        mode="overwrite"
     )
     
     write_deltalake(
         f"s3://{SILVER_BUCKET}/executive_profiles",
         df_wiki_enriched,
-        storage_options=DELTA_STORAGE_OPTIONS
+        storage_options=DELTA_STORAGE_OPTIONS,
+        mode="overwrite"
     )
 
     print("--- File Format Storage Comparison ---")
