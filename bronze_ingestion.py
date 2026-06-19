@@ -3,6 +3,8 @@ import hashlib
 import boto3
 from botocore.exceptions import ClientError
 from datetime import datetime, timezone
+import socket
+import getpass
 
 import os
 from dotenv import load_dotenv
@@ -96,10 +98,15 @@ def upload_to_bronze(s3_client, file_path, object_name):
             raise
 
     # Upload with Custom Metadata
+    try:
+        operator_val = f"{getpass.getuser()}@{socket.gethostname()}"
+    except Exception:
+        operator_val = "data_engineer"
+
     metadata = {
         'ingestion_timestamp': datetime.now(timezone.utc).isoformat(),
         'source_system': 'local_file_system',
-        'operator_id': 'data_engineer_fp',
+        'operator_id': operator_val,
         'original_md5': local_md5
     }
     
