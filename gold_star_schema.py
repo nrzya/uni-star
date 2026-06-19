@@ -1,6 +1,9 @@
 import duckdb
 import os
 from dotenv import load_dotenv
+from deltalake import DeltaTable
+import os
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -14,7 +17,9 @@ STORAGE_OPTIONS = {
     "AWS_ACCESS_KEY_ID": MINIO_ACCESS_KEY,
     "AWS_SECRET_ACCESS_KEY": MINIO_SECRET_KEY,
     "AWS_ENDPOINT_URL": MINIO_ENDPOINT_URL,
-    "AWS_REGION": "us-east-1"
+    "AWS_REGION": "us-east-1",
+    "AWS_ALLOW_HTTP": "true",
+    "AWS_S3_ALLOW_UNSAFE_RENAME": "true"
 }
 
 GOLD_BUCKET = "gold"
@@ -51,9 +56,12 @@ def create_gold_layer():
     con.execute(f"SET s3_region='us-east-1';")
     con.execute(f"SET s3_url_style='path';")
     
-    print("[INFO] Reading Silver Parquet Tables...")
-    con.execute("CREATE OR REPLACE VIEW silver_startups AS SELECT * FROM read_parquet('s3://silver/unicorn_startups/*.parquet');")
-    con.execute("CREATE OR REPLACE VIEW silver_executives AS SELECT * FROM read_parquet('s3://silver/executive_profiles/*.parquet');")
+    print("[INFO] Reading Silver Delta Tables into Pandas...")
+    df_startups = DeltaTable('s3://silver/unicorn_startups', storage_options=STORAGE_OPTIONS).to_pandas()
+    df_executives = DeltaTable('s3://silver/executive_profiles', storage_options=STORAGE_OPTIONS).to_pandas()
+    
+    con.register('silver_startups', df_startups)
+    con.register('silver_executives', df_executives)
     
     s3_client = get_s3_client()
     try:

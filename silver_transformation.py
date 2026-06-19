@@ -1,5 +1,6 @@
 import pandas as pd
 import boto3
+from deltalake.writer import write_deltalake
 
 import os
 from dotenv import load_dotenv
@@ -18,6 +19,15 @@ PANDAS_STORAGE_OPTIONS = {
     "key": MINIO_ACCESS_KEY,
     "secret": MINIO_SECRET_KEY,
     "client_kwargs": {"endpoint_url": MINIO_ENDPOINT}
+}
+
+DELTA_STORAGE_OPTIONS = {
+    'AWS_ACCESS_KEY_ID': MINIO_ACCESS_KEY,
+    'AWS_SECRET_ACCESS_KEY': MINIO_SECRET_KEY,
+    'AWS_ENDPOINT_URL': MINIO_ENDPOINT,
+    'AWS_REGION': 'us-east-1',
+    'AWS_ALLOW_HTTP': 'true',
+    'AWS_S3_ALLOW_UNSAFE_RENAME': 'true'
 }
 
 BRONZE_BUCKET = "bronze"
@@ -125,19 +135,17 @@ def process_silver():
     except:
         pass # Bucket might already exist
 
-    # Write Parquet Tables to S3
-    df_kaggle.to_parquet(
-        f"s3://{SILVER_BUCKET}/unicorn_startups/data.parquet",
-        storage_options=PANDAS_STORAGE_OPTIONS,
-        engine="pyarrow",
-        index=False
+    # Write Delta Tables to S3
+    write_deltalake(
+        f"s3://{SILVER_BUCKET}/unicorn_startups",
+        df_kaggle,
+        storage_options=DELTA_STORAGE_OPTIONS
     )
     
-    df_wiki_enriched.to_parquet(
-        f"s3://{SILVER_BUCKET}/executive_profiles/data.parquet",
-        storage_options=PANDAS_STORAGE_OPTIONS,
-        engine="pyarrow",
-        index=False
+    write_deltalake(
+        f"s3://{SILVER_BUCKET}/executive_profiles",
+        df_wiki_enriched,
+        storage_options=DELTA_STORAGE_OPTIONS
     )
 
     print("--- File Format Storage Comparison ---")
