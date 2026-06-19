@@ -5,6 +5,7 @@ from botocore.exceptions import ClientError
 from datetime import datetime, timezone
 import socket
 import getpass
+import requests
 
 import os
 from dotenv import load_dotenv
@@ -121,6 +122,29 @@ def upload_to_bronze(s3_client, file_path, object_name):
 
 import glob
 
+def fetch_wikidata_sparql(query, output_path):
+    """
+    Fetches data directly from Wikidata SPARQL API and saves it as CSV.
+    
+    Args:
+        query (str): The SPARQL query string to execute.
+        output_path (str): The local path where the CSV result will be saved.
+    """
+    print("[INFO] Fetching live data from Wikidata SPARQL API...")
+    url = 'https://query.wikidata.org/sparql'
+    try:
+        response = requests.get(
+            url, 
+            params={'query': query}, 
+            headers={'Accept': 'text/csv', 'User-Agent': 'Mozilla/5.0 DataLakehouseProject/1.0'}
+        )
+        response.raise_for_status()
+        with open(output_path, 'wb') as f:
+            f.write(response.content)
+        print(f"[SUCCESS] Wikidata data downloaded to {output_path}")
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch Wikidata: {e}")
+
 def main():
     """
     Main execution pipeline for the Bronze Ingestion layer.
@@ -132,6 +156,26 @@ def main():
     if not os.path.exists(raw_data_dir):
         os.makedirs(raw_data_dir)
         print(f"[INFO] Created directory {raw_data_dir}. Place raw data files here.")
+    
+    # Fetch live data from Wikidata
+    wikidata_query = '''
+        SELECT DISTINCT ?companyLabel ?executiveLabel ?universityLabel ?degreeLabel
+        WHERE {
+            ?company wdt:P31/wdt:P279* wd:Q4830453. 
+            ?company wdt:P169 ?executive. 
+            ?executive wdt:P69 ?university. 
+            OPTIONAL { ?executive wdt:P512 ?degree. }
+            SERVICE wikibase:label { 
+                bd:serviceParam wikibase:language "en". 
+                ?company rdfs:label ?companyLabel.
+                ?executive rdfs:label ?executiveLabel.
+                ?university rdfs:label ?universityLabel.
+                ?degree rdfs:label ?degreeLabel.
+            }
+        }
+    '''
+    wikidata_file = os.path.join(raw_data_dir, "wikidata_executive_profile.csv")
+    fetch_wikidata_sparql(wikidata_query, wikidata_file)
     
     # Identify all supported flat files in the raw dropzone
     files_to_ingest = []
