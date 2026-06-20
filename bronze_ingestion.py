@@ -167,6 +167,11 @@ WHERE {
   ?company wdt:P31/wdt:P279* wd:Q4830453. 
   ?company wdt:P169 ?executive. 
   ?executive wdt:P69 ?university. 
+  
+  # Hanya memprioritaskan Institusi Pendidikan Tinggi (Universitas, Perguruan Tinggi, Sekolah Bisnis, dll)
+  VALUES ?uniType { wd:Q3918 wd:Q189004 wd:Q13220391 wd:Q38723 }
+  ?university wdt:P31 ?uniType.
+  
   OPTIONAL { ?executive wdt:P512 ?degree. }
   SERVICE wikibase:label { 
     bd:serviceParam wikibase:language "en". 

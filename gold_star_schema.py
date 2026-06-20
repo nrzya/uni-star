@@ -91,10 +91,10 @@ def create_gold_layer():
         COPY (
             SELECT DISTINCT
                 executiveLabel AS executive_name,
-                universityLabel AS university_name,
-                degreeLabel AS degree,
-                QS_Rank AS qs_rank,
-                University_Tier_Flag AS tier_flag
+                universityLabel as highest_education_institution,
+                degreeLabel as highest_degree,
+                QS_Rank_Num as qs_world_ranking,
+                University_Tier_Flag as tier_flag
             FROM silver_executives
         ) TO 's3://gold/dim_executive.parquet' (FORMAT PARQUET, OVERWRITE_OR_IGNORE);
     """)
@@ -114,8 +114,8 @@ def create_gold_layer():
                 -- Older companies reaching high valuations with non-traditional
                 -- founder backgrounds receive a higher Grit Index.
                 CASE 
+                    WHEN e.University_Tier_Flag LIKE 'Unranked%' THEN (s.Company_Age_Years * 2.0)
                     WHEN e.University_Tier_Flag LIKE 'Non-Top%' THEN (s.Company_Age_Years * 1.5)
-                    WHEN e.University_Tier_Flag LIKE 'Non-Formal%' THEN (s.Company_Age_Years * 2.0)
                     ELSE (s.Company_Age_Years * 1.0)
                 END AS experience_grit_index
             FROM silver_startups s

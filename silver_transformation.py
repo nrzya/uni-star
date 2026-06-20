@@ -93,14 +93,13 @@ def process_silver():
         storage_options=PANDAS_STORAGE_OPTIONS
     )
 
+    # Data Cleansing for Wikidata
     print("[INFO] Data Cleaning & Transformation...")
-    
-    # Clean Kaggle Data
-    df_kaggle = df_kaggle.fillna('N/A')
-    
-    # Clean Wikidata
-    df_wiki['universityLabel'] = df_wiki['universityLabel'].fillna('Unknown')
-    df_wiki['universityLabel'] = df_wiki['universityLabel'].str.strip()
+    df_wiki.drop_duplicates(inplace=True)
+    df_wiki.dropna(subset=['companyLabel', 'executiveLabel', 'universityLabel'], inplace=True)
+    df_wiki['degreeLabel'] = df_wiki['degreeLabel'].fillna('Unknown').astype(str)
+    df_wiki['companyLabel'] = df_wiki['companyLabel'].astype(str).str.strip()
+    df_wiki['universityLabel'] = df_wiki['universityLabel'].astype(str).str.strip()
     
     # Process QS Rankings
     inst_col = [c for c in df_qs.columns if 'institution' in str(c).lower() or 'name' in str(c).lower()][0]
@@ -110,15 +109,16 @@ def process_silver():
     df_qs_clean.columns = ['universityLabel', 'QS_Rank']
     df_qs_clean['universityLabel'] = df_qs_clean['universityLabel'].astype(str).str.strip()
     
-    # Handling non-numeric ranks like "501-510" by taking the first number
     df_qs_clean['QS_Rank_Num'] = df_qs_clean['QS_Rank'].astype(str).str.extract(r'(\d+)').astype(float)
     
     # Merge Wikidata with QS to Flag Top Tier
     df_wiki_enriched = df_wiki.merge(df_qs_clean, on='universityLabel', how='left')
     
-    def flag_tier(rank):
+    def flag_tier(row):
+        rank = row['QS_Rank_Num']
+        
         if pd.isna(rank):
-            return "Non-Formal / Experience"
+            return "Unranked Higher Ed"
         elif rank <= 100:
             return "Top Tier Elite (Top 100)"
         elif rank <= 500:
@@ -126,7 +126,11 @@ def process_silver():
         else:
             return "Non-Top Tier (>500)"
             
-    df_wiki_enriched['University_Tier_Flag'] = df_wiki_enriched['QS_Rank_Num'].apply(flag_tier)
+    df_wiki_enriched['University_Tier_Flag'] = df_wiki_enriched.apply(flag_tier, axis=1)
+    
+    # Drop QS_Rank string column to avoid Delta Lake "Null" type error if all are missing
+    df_wiki_enriched.drop(columns=['QS_Rank'], inplace=True, errors='ignore')
+    df_wiki_enriched['University_Tier_Flag'] = df_wiki_enriched['University_Tier_Flag'].astype(str)
     
     print("[INFO] Writing Cleansed Data to Silver Layer (Delta Format)...")
     s3_client = get_s3_client()
