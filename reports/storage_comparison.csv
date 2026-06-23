@@ -1,0 +1,9 @@
+layer,dataset,format,size_bytes
+bronze,kaggle_unicorn_startups,csv,26333.0
+bronze,wikidata_executive_profile,csv,66083.0
+bronze,2027 QS World University Rankings 1.1 (For qs.com).xlsx,xlsx,311501.0
+silver,unicorn_startups,delta/parquet,162434.0
+silver,executive_profiles,delta/parquet,292507.0
+summary,bronze_total,raw,403917.0
+summary,silver_total,delta/parquet,454941.0
+summary,storage_reduction_pct,metric,-12.63

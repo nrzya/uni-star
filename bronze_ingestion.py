@@ -67,7 +67,7 @@ def ensure_bucket_exists(s3_client, bucket_name):
         else:
             raise
 
-def upload_to_bronze(s3_client, file_path, object_name):
+def upload_to_bronze(s3_client, file_path, object_name, source_system="local_file_system"):
     """
     Uploads a file to the Bronze layer with idempotency checks and custom metadata.
     
@@ -78,6 +78,7 @@ def upload_to_bronze(s3_client, file_path, object_name):
         s3_client (boto3.client): The active S3 client instance.
         file_path (str): Path to the local file.
         object_name (str): The destination object key in S3.
+        source_system (str): Origin label stored as Bronze object metadata.
     """
     local_md5 = get_md5(file_path)
     
@@ -106,7 +107,7 @@ def upload_to_bronze(s3_client, file_path, object_name):
 
     metadata = {
         'ingestion_timestamp': datetime.now(timezone.utc).isoformat(),
-        'source_system': 'local_file_system',
+        'source_system': source_system,
         'operator_id': operator_val,
         'original_md5': local_md5
     }
@@ -188,10 +189,10 @@ WHERE {
     files_to_ingest = []
     for file_path in glob.glob(os.path.join(raw_data_dir, "*")):
         if file_path.endswith((".csv", ".json", ".xml", ".xlsx", ".txt")):
-            files_to_ingest.append(file_path)
+            files_to_ingest.append((file_path, "local_file_system"))
             
     # Explicitly add the API file from .temp to the ingestion list
-    files_to_ingest.append(wikidata_file)
+    files_to_ingest.append((wikidata_file, "wikidata_sparql_api"))
         
     s3_client = get_s3_client()
     ensure_bucket_exists(s3_client, BRONZE_BUCKET)
@@ -201,9 +202,9 @@ WHERE {
         print(f"[WARN] No data files found in {raw_data_dir}. Skipping ingestion.")
         return
 
-    for file_path in files_to_ingest:
+    for file_path, source_system in files_to_ingest:
         file_name = os.path.basename(file_path)
-        upload_to_bronze(s3_client, file_path, file_name)
+        upload_to_bronze(s3_client, file_path, file_name, source_system)
             
     print("[ OK ] Ingestion Process Completed.")
 
